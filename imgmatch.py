@@ -69,7 +69,6 @@ def propagate_person_id(faceId):
 
 
 
-faces = {}
 for face in data["Faces"]:
    key = face['FaceId']
 
@@ -83,11 +82,9 @@ for face in data["Faces"]:
 personId = 0
 for faceId in faces:
     if 'PersonId' not in faces[faceId]:
-        personId = personId + 1;
+        personId = personId + 1
         faces[faceId]['PersonId'] = personId
         propagate_person_id(faceId)
 for faceId in faces:
-    print("face Id "+faceId +" Person Id "+ str(faces[faceId]['PersonId']) );
+    print("face Id "+faceId +" Person Id "+ str(faces[faceId]['PersonId']) )
     crop(faceId, faces[faceId]['ExternalImageId'], faces[faceId]['BoundingBox'], faces[faceId]['PersonId'])
-
-
