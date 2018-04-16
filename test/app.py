@@ -36,24 +36,23 @@ ret = {}
 faces = {}
 @app.schedule(Rate(1, unit=Rate.DAYS))
 def handler(event):
-    with open('inv.csv', 'r') as inv:
-        for line in inv:
-            key = line.split(',')[1]
-            if not any(d['Key'] == key for d in imgs['Contents']):
-                client.index_faces(
-                    CollectionId=collection,
-                    Image = {
-                        'S3Object': {
-                            'Bucket': bucket.name,
-                            'Name': key[:-4],
-                        }
-                    },
-                    ExternalImageId=key,
-                    DetectionAttributes = [
-                        'DEFAULT'
-                    ]
-                )
-                print('indexed: ' + str(key))
+    for d in imgs['Contents']:
+        key = d['Key']
+        if not any(di['ExternalImageId'] == key for di in data['Faces']):
+            client.index_faces(
+                CollectionId=collection,
+                Image = {
+                    'S3Object': {
+                        'Bucket': bucket.name,
+                        'Name': key,
+                    }
+                },
+                ExternalImageId=key,
+                DetectionAttributes = [
+                    'DEFAULT'
+                ]
+            )
+            print('indexed: ' + str(key))
 
 
     global ret
