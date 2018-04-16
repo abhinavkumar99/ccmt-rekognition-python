@@ -1,24 +1,28 @@
 import boto3
-import os
 
 s3 = boto3.resource('s3')
-
+client = boto3.client('rekognition')
+sclient = boto3.client('s3')
 bucket = s3.Bucket('rekog-bucket2')
-i = 1
-directory = os.fsencode('Camera Roll')
-imgs = os.listdir(directory)
+collection = 'x'
+imgs = sclient.list_objects(Bucket='rekog-bucket2')
 
+with open('inv.csv', 'r') as inv:
+    for line in inv:
+        key = line.split(',')[1]
+        if not any(d['Key'] == key for d in imgs['Contents']):
+            client.index_faces(
+                CollectionId=collection,
+                Image = {
+                    'S3Object': {
+                        'Bucket': bucket.name,
+                        'Name': key[:-4],
+                    }
+                },
+                ExternalImageId=key,
+                DetectionAttributes = [
+                    'DEFAULT'
+                ]
+            )
+            print('indexed: ' + str(key))
 
-for img in imgs:
-   bucket.upload_file(f'Camera Roll/{img.decode("ascii")}', f'img{i}.jpg')
-   print(f'img{i}.jpg')
-   i += 1
-   
-    
-
-"""client = boto3.client('rekognition', 'us-east-2')
-client.create_collection(
-    CollectionId='rek-collection'
-)
-
-s3.index_faces()"""

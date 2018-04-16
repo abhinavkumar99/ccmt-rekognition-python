@@ -4,6 +4,28 @@
     {
       "Effect": "Allow",
       "Action": [
+        "rekognition:ListFaces",
+        "rekognition:SearchFaces",
+        "rekognition:SearchFacesByImage"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Sid": "df2771d8676f4a9a8d835ae8bc89fb9f"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "*"
+      ],
+      "Sid": "b91d2afccd604556b0ee57d96cc527c5"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents"
