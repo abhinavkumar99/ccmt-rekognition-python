@@ -1,39 +1,100 @@
-from chalice import Chalice
+import boto3
+from PIL import Image
+import os
+import io
+import base64
+import json
 
+from chalice import Chalice, Response
 app = Chalice(app_name='helloworld')
+s3 = boto3.resource('s3')
+collection = 'rek-collection'
+bucket = s3.Bucket('rekog-bucket2')
+client = boto3.client('rekognition', 'us-east-2')
+sclient = boto3.client('s3')
+data = client.list_faces(CollectionId='rek-collection')
 
-CITIES_TO_STATE = {
-    'seattle': 'WA',
-    'portland': 'OR',
-}
+ret = {}
+faces = {}
 
+def propagate_person_id(faces, faceId):
+    
+    for matchingId in faces[faceId]['FaceMatches']:
+        mid = faces[faceId]['FaceMatches'][matchingId]
+        if'PersonId' not in faces[mid]:
+            numberMatchingLoops = 0
+
+            for matchingId2 in faces[mid]['FaceMatches']:
+                mid2 = faces[mid]['FaceMatches'][matchingId2]
+
+                if faceId not in faces[mid2]['FaceMatches']:
+                    numberMatchingLoops += 1
+            if numberMatchingLoops >= 2:
+                personId = faces[faceId]['PersonId']
+                faces[mid]['PersonId'] = personId
+                faces = propagate_person_id(faces,mid)
+    return faces
+#Currently groups all images. Add thing to group based only on input image
+for face in data['Faces']:
+    
+    key = face['FaceId']
+
+    ids = face['ExternalImageId']
+    box = face['BoundingBox']
+    faces[key] = {
+        'ExternalImageId': ids,
+        'BoundingBox': box 
+    }
+    queueData = client.search_faces(CollectionId = 'rek-collection', FaceId=key, MaxFaces=4096, FaceMatchThreshold=75)
+    matches = {}
+    for i in range(len(queueData['FaceMatches'])):
+        matches[i] = queueData['FaceMatches'][i]['Face']['FaceId']
+    faces[key]['FaceMatches'] = matches
+
+
+personId = 0
+for faceId in faces:
+    if 'PersonId' not in faces[faceId]:
+        personId = personId + 1
+        faces[faceId]['PersonId'] = personId
+        faces = propagate_person_id(faces, faceId)
+
+for faceId in faces:
+    bb = faces[faceId]['BoundingBox']
+    personId = faces[faceId]['PersonId']
+    print("Downloading..." + faces[faceId]['ExternalImageId'])
+
+    obj = sclient.get_object(
+        Bucket = 'rekog-bucket2',
+        Key=faces[faceId]['ExternalImageId']
+    )
+    img = Image.open(io.BytesIO(obj['Body'].read()))
+    width, height=img.size
+    b = []
+    b.append(width)
+    b.append(height)
+    bbwidth = bb['Width']
+    bbheight = bb['Height']
+    bbx = bb['Left']
+    bby = bb['Top']
+    width = b[0]*bbwidth
+    height = b[1]*bbheight
+    x = b[0]*bbx
+    y = b[1]*bby
+    img = img.crop((x, y, width + x, height + y))
+    
+    buffered = io.BytesIO()
+    img.save(buffered, format='JPEG')
+    if personId not in ret:
+        ret[personId] = []
+    ret[personId].append(base64.b64encode(buffered.getvalue()).decode('utf-8'))
 
 
 @app.route('/')
 def index():
-    return {'hello': 'world'}
+    return ret
 
-@app.route('/cities/{city}')
-def state_of_city(city):
-    return {'state': CITIES_TO_STATE[city]}
+@app.route('/faces',methods = ['POST'], content_types = ['application/x-www-form-urlencoded','application/octet-stream', 'application/json'])
+def search():
 
-
-# The view function above will return {"hello": "world"}
-# whenever you make an HTTP GET request to '/'.
-#
-# Here are a few more examples:
-#
-# @app.route('/hello/{name}')
-# def hello_name(name):
-#    # '/hello/james' -> {"hello": "james"}
-#    return {'hello': name}
-#
-# @app.route('/users', methods=['POST'])
-# def create_user():
-#     # This is the JSON body the user sent in their POST request.
-#     user_as_json = app.current_request.json_body
-#     # We'll echo the json body back to the user in a 'user' key.
-#     return {'user': user_as_json}
-#
-# See the README documentation for more examples.
-#
+    return client.search_faces_by_image(CollectionId=collection, Image={'Bytes': app.current_request.raw_body})['FaceMatches']
