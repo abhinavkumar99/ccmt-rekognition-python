@@ -3,10 +3,9 @@ from PIL import Image
 import os
 import io
 import base64
-import json
 
 from chalice import Chalice, Response, Rate
-app = Chalice(app_name='helloworld')
+app = Chalice(app_name='img search')
 s3 = boto3.resource('s3')
 collection = 'rek-collection'
 bucket = s3.Bucket('rekog-bucket2')
