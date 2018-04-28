@@ -58,7 +58,6 @@ def handler(event):
     global faces
     ret = {}
     faces = {}
-    #Currently groups all images. Add thing to group based only on input image
     for face in data['Faces']:
         
         key = face['FaceId']
